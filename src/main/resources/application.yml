@@ -1,0 +1,63 @@
+spring:
+  application:
+    name: todo
+  sql:
+    init:
+      mode: always
+      continue-on-error: true
+  jpa:
+    defer-datasource-initialization: true
+
+
+---
+spring:
+  config:
+    activate:
+      on-profile: devenv
+  datasource:
+    url: jdbc:postgresql://db-devenv-postgresql:5432/devenvdb
+    driver-class-name: org.postgresql.Driver
+    username: devenv
+    password: devenv
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+---
+
+auth:
+  domain: auth.camelcase.club
+
+spring:
+  config:
+    activate:
+      on-profile: demo
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://${auth.domain}/realms/demo-realm
+          jwk-set-uri: https://${auth.domain}/realms/demo-realm/protocol/openid-connect/certs
+  datasource:
+    url: jdbc:postgresql://${RDS_HOSTNAME}:5432/${RDS_USER_DB_NAME}
+    driver-class-name: org.postgresql.Driver
+    username: ${RDS_USER_DB_USERNAME}
+    password: ${RDS_USER_DB_PASSWORD}
+    #password: secure-password
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 30000
+      connection-timeout: 30000
+      max-lifetime: 1800000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect

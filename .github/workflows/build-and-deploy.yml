@@ -1,0 +1,174 @@
+name: Build, Dockerize, and Deploy Helm Chart
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  aws_role: 'arn:aws:iam::966412459053:role/CCAwsInfraDemoGithubAction'
+  aws_region: 'eu-west-1'
+  aws_account_id: '966412459053'
+  service_name: 'todo-service'
+  service_version: 'latest'
+  
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      # Set up JDK 17 
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'zulu'
+
+      # Cache Gradle dependencies for faster builds
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Grant execute permission for Gradle
+        run: chmod +x gradlew
+
+      # Build the project using Gradle
+      - name: Build with Gradle
+        run: ./gradlew build
+
+      # Save the build artifact (JAR)
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: todo-jar
+          path: build/libs/todo-*.jar
+
+  push:
+    runs-on: ubuntu-latest
+    needs: build  # Ensures this job runs after 'build' completes
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      # Download the built artifact (JAR) from the 'build' job
+      - name: Download JAR artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: todo-jar
+          path: ./build/libs/
+
+      # Build the Docker image using the downloaded JAR
+      - name: Build Docker image
+        run: |
+          docker build . -t ghcr.io/${{ github.repository }}:${{ env.service_version }}
+
+      # Log in to Docker Hub
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # Tag Docker image for Docker Hub
+      - name: Tag Docker image for Docker Hub
+        run: |
+          docker tag ghcr.io/${{ github.repository }}:${{ env.service_version }} ${{ secrets.DOCKER_USERNAME }}/${{ env.service_name }}:${{ env.service_version }}
+
+      # Push the Docker image to Docker Hub
+      - name: Push Docker image to Docker Hub
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/${{ env.service_name }}:${{ env.service_version }}
+
+      # Configure AWS credentials for ECR authentication
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.aws_role }}
+          aws-region: ${{ env.aws_region }}
+
+      # Log in to AWS ECR
+      - name: Log in to Amazon ECR
+        run: aws ecr get-login-password --region ${{ env.aws_region }} | docker login --username AWS --password-stdin ${{ env.aws_account_id }}.dkr.ecr.${{ env.aws_region }}.amazonaws.com
+
+      # Tag Docker image for ECR
+      - name: Tag Docker image for AWS ECR
+        run: |
+          docker tag ghcr.io/${{ github.repository }}:${{ env.service_version }} ${{ env.aws_account_id }}.dkr.ecr.${{ env.aws_region }}.amazonaws.com/${{ env.service_name }}:${{ env.service_version }}
+
+      # Push Docker image to AWS ECR
+      - name: Push Docker image to AWS ECR
+        run: |
+          docker push ${{ env.aws_account_id }}.dkr.ecr.${{ env.aws_region }}.amazonaws.com/${{ env.service_name }}:${{ env.service_version }}
+
+      # Add annotation for Docker image version
+      - name: Annotate Docker image version
+        run: |
+          echo "::notice::Docker image pushed to Docker Hub: ${{ secrets.DOCKER_USERNAME }}/${{ env.service_name }}:${{ env.service_version }}"
+
+  helm:
+    runs-on: ubuntu-latest
+    needs: push  # Ensures this job runs after 'docker' completes
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+        # Set up JDK 17 (for gradle)
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'zulu'
+
+      - name: Get Gradle version
+        id: get_version
+        run: |
+          GRADLE_VERSION=$(./gradlew properties -q | grep "version:" | awk '{print $2}')
+          echo "Gradle version: $GRADLE_VERSION"
+
+          # Check if version contains SNAPSHOT, convert it to -alpha for Helm
+          if [[ "$GRADLE_VERSION" == *"SNAPSHOT"* ]]; then
+            HELM_VERSION="${GRADLE_VERSION/SNAPSHOT/alpha}"
+          else
+            HELM_VERSION="$GRADLE_VERSION"
+          fi
+
+          echo "Helm version: $HELM_VERSION"
+          echo "HELM_VERSION=$HELM_VERSION" >> $GITHUB_ENV
+
+      - name: Update Helm Chart version
+        run: |
+          sed -i "s/^version:.*/version: $HELM_VERSION/" helm/Chart.yaml
+          cat helm/Chart.yaml  
+
+      - name: Install Helm
+        run: |
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+      - name: Package Helm chart
+        run: |
+          helm package helm
+  
+      - name: Authenticate to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io --username ${{ github.actor }} --password-stdin
+  
+      - name: Push Helm chart to GitHub Packages
+        run: |
+          helm push ${{ env.service_name }}-*.tgz oci://ghcr.io/${{ github.repository_owner }}/helm-charts
+
+      - name: Annotate Helm chart version
+        run: |
+          echo "::notice::Helm chart version pushed: $HELM_VERSION"
