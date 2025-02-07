@@ -1,13 +1,12 @@
 package com.mm.todo.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.mm.todo.model.Todo;
 import com.mm.todo.repository.TodoRepository;
-
+import com.mm.todo.exception.ResourceNotFoundException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,18 +15,22 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/todo")
+@RequestMapping("/api/todos")
 public class TodoController {
 
     private static final Logger logger = LoggerFactory.getLogger(TodoController.class);
 
-    @Autowired
-    private TodoRepository todoRepository;
+    private final TodoRepository todoRepository;
+
+    public TodoController(TodoRepository todoRepository) {
+        this.todoRepository = todoRepository;
+    }
 
     @GetMapping
     @PreAuthorize("hasAnyRole('api-viewer', 'api-editor')")
-    public List<Todo> getAllTodos() {
-        return todoRepository.findAll();
+    public ResponseEntity<List<Todo>> getAllTodos() {
+        List<Todo> todos = todoRepository.findAll();
+        return ResponseEntity.ok(todos);
     }
 
     @PostMapping
@@ -39,12 +42,9 @@ public class TodoController {
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('api-viewer', 'api-editor')")
     public ResponseEntity<Todo> getTodoById(@PathVariable Long id) {
-        Optional<Todo> todo = todoRepository.findById(id);
-        if (todo.isPresent()) {
-            return ResponseEntity.ok(todo.get());
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+        Todo todo = todoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Todo not found with id " + id));
+        return ResponseEntity.ok(todo);
     }
 
     @PutMapping("/{id}")
