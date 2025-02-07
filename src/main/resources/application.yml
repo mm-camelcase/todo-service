@@ -43,11 +43,10 @@ spring:
           issuer-uri: https://${auth.domain}/realms/demo-realm
           jwk-set-uri: https://${auth.domain}/realms/demo-realm/protocol/openid-connect/certs
   datasource:
-    url: jdbc:postgresql://${RDS_HOSTNAME}:5432/${RDS_USER_DB_NAME}
+    url: jdbc:postgresql://${RDS_HOSTNAME}:5432/${RDS_TODO_DB_NAME}
     driver-class-name: org.postgresql.Driver
-    username: ${RDS_USER_DB_USERNAME}
-    password: ${RDS_USER_DB_PASSWORD}
-    #password: secure-password
+    username: ${RDS_TODO_DB_USERNAME}
+    password: ${RDS_TODO_DB_PASSWORD}
     hikari:
       maximum-pool-size: 10
       minimum-idle: 2
