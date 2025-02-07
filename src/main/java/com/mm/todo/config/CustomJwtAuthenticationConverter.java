@@ -16,7 +16,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
 
-
 @AllArgsConstructor
 @Component
 public class CustomJwtAuthenticationConverter implements Converter<Jwt, JwtAuthenticationToken> {
