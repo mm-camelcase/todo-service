@@ -1,6 +1,10 @@
 # Demo App
 
-This project is a simple Spring Boot application that can be used for testing CICD pipelines & deployments.      
+This project is a simple Spring Boot application designed for testing CI/CD pipelines & deployments. The application behavior varies based on the active profile:
+
+- **Default Profile:** Uses an H2 in-memory database and has authentication disabled.
+
+- **Demo Profile:** Uses PostgreSQL and has authentication enabled via Spring Security with Keycloak tokens
 
 ## Requirements
 
@@ -9,7 +13,7 @@ This project is a simple Spring Boot application that can be used for testing CI
 
 ## Project Structure
 
-This project contains a basic CRUD API with an H2 in-memory database. It can be run locally using the Gradle wrapper (`./gradlew`) provided in the project.
+This project includes a basic CRUD API implemented using ``spring-boot-starter-data-jpa``, with an H2 in-memory database for local development. It can be executed locally using the Gradle wrapper (``./gradlew``) provided in the project.
 
 
 | ![Index Image](.artifacts/index.png) | ![Swagger Image](.artifacts/swagger.png) |
