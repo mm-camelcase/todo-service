@@ -21,8 +21,8 @@ This project contains a basic CRUD API with an H2 in-memory database. It can be 
 
 Here are some commonly used Gradle commands for managing your Spring Boot project:
 
-``./gradlew bootRun`` - Runs the Spring Boot application. App available at http://localhost:8080 
-``./gradlew bootRun  --args='--spring.profiles.active=demo'`` - Run with demo profile
+``./gradlew bootRun`` - Runs the Spring Boot application. App available at http://localhost:8080     
+``./gradlew bootRun  --args='--spring.profiles.active=demo'`` - Run with demo profile     
 ``./gradlew bootRun --debug-jvm`` - Run in debug mode   
 ``./gradlew build`` - Builds the project and packages it into a JAR.  
 ``./gradlew test`` - Runs the unit tests.  
